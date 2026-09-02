@@ -1,0 +1,1692 @@
+<title>Diskorse Collective — Dev Handoff</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --page:#FFFFFF;
+    --canvas:#F5F4F1;
+    --surface:#FFFFFF;
+    --ink:#1A1A1A;
+    --ink-soft:#8A887F;
+    --border:#ECE9E1;
+    --primary:#5448EE;
+    --primary-bg:#F3F2FE;
+    --vouch-gold:#B8862E;
+    --vouch-gold-bg:#FBF2E2;
+    --anon:#D8D5CC;
+    --danger:#D64545;
+    --success:#2F9E5B;
+    --success-bg:#EAF7EF;
+  }
+  *{box-sizing:border-box;}
+  body{
+    background:var(--page);
+    color:var(--ink);
+    font-family:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+    margin:0;
+  }
+  [hidden]{ display:none !important; }
+
+  /* ---- dev chrome: topbar, screen index panel ---- */
+  .topbar{
+    position:fixed; top:0; left:0; right:0; height:56px; z-index:50;
+    background:var(--surface); border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between; padding:0 18px;
+  }
+  .topbar-left, .topbar-center, .topbar-right{ display:flex; align-items:center; gap:10px; }
+  .topbar-brand{ font-size:13.5px; font-weight:800; color:var(--ink); white-space:nowrap; }
+  .topbar-brand span{ color:var(--ink-soft); font-weight:600; margin-left:7px; }
+  .navbtn{
+    width:30px; height:30px; border-radius:8px; border:1px solid var(--border); background:var(--surface);
+    display:flex; align-items:center; justify-content:center; color:var(--ink); cursor:pointer; flex:none;
+  }
+  .navbtn:hover{ border-color:var(--primary); color:var(--primary); }
+  .navbtn:disabled{ opacity:.35; cursor:default; }
+  .navbtn:disabled:hover{ border-color:var(--border); color:var(--ink); }
+  .crumb{ font-size:12.5px; color:var(--ink-soft); font-weight:600; white-space:nowrap; }
+  .idxtoggle{
+    display:flex; align-items:center; gap:7px; border:1px solid var(--border); background:var(--surface);
+    padding:7px 13px; border-radius:9px; font-size:12.5px; font-weight:700; color:var(--ink);
+    cursor:pointer; font-family:inherit;
+  }
+  .idxtoggle:hover{ border-color:var(--primary); color:var(--primary); }
+  .backdrop{
+    position:fixed; inset:0; background:rgba(26,26,26,.28); z-index:60; opacity:0; pointer-events:none;
+    transition:opacity .15s ease;
+  }
+  .backdrop.open{ opacity:1; pointer-events:auto; }
+  .idxpanel{
+    position:fixed; top:0; left:0; bottom:0; width:280px; background:var(--surface);
+    border-right:1px solid var(--border); z-index:70; transform:translateX(-100%);
+    transition:transform .18s ease; display:flex; flex-direction:column;
+  }
+  .idxpanel.open{ transform:translateX(0); }
+  .idxpanel-head{
+    display:flex; align-items:center; justify-content:space-between; padding:16px 18px;
+    border-bottom:1px solid var(--border); flex:none;
+  }
+  .idxpanel-head h4{ margin:0; font-size:14.5px; font-weight:800; }
+  .idxpanel-head p{ margin:2px 0 0; font-size:11.5px; color:var(--ink-soft); }
+  .idxpanel-close{ background:none; border:none; color:var(--ink-soft); cursor:pointer; padding:4px; }
+  .idxpanel-body{ overflow-y:auto; padding-bottom:20px; }
+  .idx-group-label{
+    font-size:10.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase;
+    color:var(--ink-soft); padding:16px 18px 8px;
+  }
+  .idx-list{ display:flex; flex-direction:column; gap:2px; padding:0 10px; }
+  .idx-item{
+    display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:9px;
+    font-size:13px; font-weight:600; color:var(--ink); cursor:pointer;
+  }
+  .idx-item:hover{ background:var(--canvas); }
+  .idx-item.on{ background:var(--primary-bg); color:var(--primary); }
+  .idx-num{
+    width:20px; height:20px; border-radius:6px; background:var(--canvas); color:var(--ink-soft);
+    font-size:10.5px; font-weight:800; display:flex; align-items:center; justify-content:center; flex:none;
+  }
+  .idx-item.on .idx-num{ background:var(--primary); color:#fff; }
+
+  .stage{ padding:56px 0 0; display:flex; justify-content:center; min-height:100vh; background:var(--page); }
+  .stage-inner{ width:100%; }
+
+  .frame{
+    background:var(--surface);
+    min-height:calc(100vh - 56px);
+    display:flex;
+    flex-direction:column;
+  }
+
+  /* content below the full-width appbar/navtabs is centered in its own narrower column */
+  .content-col{ width:100%; max-width:1080px; margin:0 auto; }
+
+  /* ---- shared app chrome ---- */
+  .appbar{ border-bottom:1px solid var(--border); }
+  .appbar-inner{
+    display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:16px;
+    padding:16px 32px; max-width:1080px; margin:0 auto;
+  }
+  .appbar-inner > *:first-child{ justify-self:start; }
+  .appbar-inner > *:last-child{ justify-self:end; }
+  .avatar{ width:38px; height:38px; border-radius:50%; background:var(--anon); flex:none; }
+  .wordmark{ font-size:22px; font-weight:800; color:var(--primary); letter-spacing:-0.02em; }
+  .appbar-right{ display:flex; align-items:center; gap:14px; }
+  .icon-btn{ position:relative; display:flex; align-items:center; color:var(--ink-soft); }
+  .badge{
+    position:absolute; top:-4px; right:-6px; background:var(--danger); color:#fff;
+    font-size:9px; font-weight:700; width:15px; height:15px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .plus-btn{
+    width:34px; height:34px; border-radius:50%; background:var(--primary); color:#fff;
+    display:flex; align-items:center; justify-content:center; flex:none;
+  }
+  .searchbar{
+    display:flex; align-items:center; gap:8px; background:var(--primary-bg); border-radius:20px;
+    padding:9px 16px; color:var(--ink-soft); font-size:13px; min-width:220px;
+  }
+  .back-link{
+    display:flex; align-items:center; gap:6px; color:var(--primary); font-size:13px; font-weight:600;
+    white-space:nowrap; background:none; border:none; font-family:inherit; cursor:pointer; padding:0;
+  }
+
+  .navtabs{ border-bottom:1px solid var(--border); }
+  .navtabs-inner{ display:flex; align-items:center; justify-content:center; gap:28px; padding:0 32px; max-width:1080px; margin:0 auto; }
+  .navtab{
+    display:flex; align-items:center; gap:6px; padding:14px 0 13px; font-size:15px; color:var(--ink-soft);
+    border-bottom:2px solid transparent; background:none; border-top:none; border-left:none; border-right:none;
+    font-family:inherit; cursor:pointer;
+  }
+  .navtab.active{ color:var(--ink); font-weight:600; border-bottom-color:var(--primary); }
+  .navtab.feature{ color:var(--primary); font-weight:600; }
+  .navtab.feature.active{ color:var(--primary); border-bottom-color:var(--primary); }
+  .newchip{
+    font-size:9px; font-weight:800; letter-spacing:.03em; color:var(--primary); background:var(--primary-bg);
+    padding:2px 6px; border-radius:6px;
+  }
+
+
+  /* ---- happening now module ---- */
+  .happening{ padding:26px 32px 6px; }
+  .happening-head{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+  .happening-title{ font-size:16px; font-weight:800; }
+  .happening-sub{ font-size:13.5px; color:var(--ink-soft); font-weight:500; margin-left:9px; }
+  .happening-seeall{ font-size:13.5px; font-weight:600; color:var(--primary); text-decoration:none; background:none; border:none; font-family:inherit; cursor:pointer; }
+  .happening-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:20px; }
+  .happening-card{ border:1px solid var(--border); border-radius:16px; overflow:hidden; display:flex; flex-direction:column; }
+  .happening-banner{
+    position:relative; height:150px; display:flex; align-items:center; justify-content:center;
+  }
+  .happening-banner::before{
+    content:''; position:absolute; inset:0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.12) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.12) 1px, transparent 1px);
+    background-size:22px 22px;
+  }
+  .happening-tag{
+    position:absolute; top:14px; left:14px; z-index:1; background:#fff;
+    font-size:10.5px; font-weight:800; letter-spacing:.04em; padding:4px 10px; border-radius:8px;
+  }
+  .happening-avatar{
+    width:64px; height:64px; border-radius:50%; z-index:1;
+    background:rgba(255,255,255,.22); border:1.5px solid rgba(255,255,255,.35);
+    color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:20px;
+  }
+  .happening-body{ background:var(--surface); padding:16px 18px 18px; display:flex; flex-direction:column; gap:8px; flex:1; }
+  .happening-body h4{ margin:0; font-size:15.5px; font-weight:800; line-height:1.35; }
+  .happening-body p{ margin:0; font-size:12.5px; color:var(--ink-soft); line-height:1.55; flex:1; }
+  .happening-cta{ margin-top:6px; border:none; border-radius:22px; height:40px; display:flex; align-items:center; justify-content:center; color:#fff; cursor:pointer; }
+  .happening-card--article .happening-banner{ background:linear-gradient(135deg,#2FAE86,#136B4C); }
+  .happening-card--article .happening-tag{ color:#136B4C; }
+  .happening-card--article .happening-cta{ background:#1D8F63; }
+  .happening-card--problem .happening-banner{ background:linear-gradient(135deg,#A88CF6,#7C5CE8); }
+  .happening-card--problem .happening-tag{ color:#7C5CE8; }
+  .happening-card--problem .happening-cta{ background:#7C5CE8; }
+  .happening-card--counsel .happening-banner{ background:linear-gradient(135deg,#4C3E86,#251C46); }
+  .happening-card--counsel .happening-tag{ color:#2E2559; }
+  .happening-card--counsel .happening-cta{ background:#2A2150; }
+
+  /* ---- generic feed article post ---- */
+  .feed-divider{ padding:0 32px; }
+  .feed-divider hr{ border:none; border-top:1px solid var(--border); margin:0; }
+  .feed-post-tag{ display:flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:#1D8F63; flex:none; }
+  .feed-meta-row{ display:flex; align-items:center; gap:14px; }
+  .feed-meta-row .meta-item{ display:flex; align-items:center; gap:5px; font-size:12.5px; color:var(--ink-soft); }
+  .feed-tag-pill{ display:flex; align-items:center; gap:5px; border:1px solid var(--border); border-radius:14px; padding:4px 11px; font-size:12px; color:var(--ink-soft); }
+  .card-divider{ border:none; border-top:1px solid var(--border); margin:2px 0 0; }
+  .engagement-row{ display:flex; align-items:center; gap:22px; color:var(--ink-soft); font-size:13px; padding-top:2px; }
+  .engagement-row span{ display:flex; align-items:center; gap:6px; }
+
+  /* ---- feed card ---- */
+  .card{ padding:22px 32px 24px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:12px; }
+  .card-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+  .identity{ display:flex; align-items:center; gap:12px; }
+  .identity-avatar{
+    width:44px; height:44px; border-radius:50%; background:var(--anon); color:var(--ink);
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:16px; flex:none;
+  }
+  .identity-name{ font-size:15px; font-weight:600; }
+  .identity-time{ font-size:12px; color:var(--ink-soft); }
+  .typetag{
+    display:flex; align-items:center; gap:6px; flex:none; background:var(--primary-bg); color:var(--primary);
+    font-size:12px; font-weight:700; padding:6px 12px; border-radius:14px;
+  }
+  .topic-line{ font-size:13px; font-weight:600; color:var(--primary); }
+  .card-title{ font-size:19px; font-weight:700; line-height:1.3; margin:0; }
+  .card-body{
+    font-size:14px; color:var(--ink-soft); line-height:1.55; margin:0;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .suggestion-box{ background:var(--primary-bg); border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:8px; }
+  .suggestion-label{ font-size:11px; font-weight:800; letter-spacing:.03em; color:var(--primary); text-transform:uppercase; }
+  .suggestion-row{ display:flex; gap:12px; }
+  .votecol{ display:flex; flex-direction:column; align-items:center; flex:none; width:34px; color:var(--primary); }
+  .votecol span{ font-size:12px; font-weight:800; }
+  .suggestion-text{ font-size:13px; color:var(--ink); line-height:1.5; }
+  .suggestion-text b{ display:block; font-size:13px; margin-bottom:2px; }
+  .card-foot{ display:flex; align-items:center; justify-content:space-between; }
+  .engagement{ display:flex; align-items:center; gap:18px; color:var(--ink-soft); font-size:13px; }
+  .engagement span{ display:flex; align-items:center; gap:5px; }
+  .btn-outline{
+    display:flex; align-items:center; gap:6px; border:1.5px solid var(--primary); color:var(--primary);
+    font-size:13px; font-weight:600; padding:8px 18px; border-radius:20px; background:none; font-family:inherit; cursor:pointer;
+  }
+  .btn-outline:hover{ background:var(--primary-bg); }
+  .btn-solid{
+    display:flex; align-items:center; gap:6px; border:none; color:#fff; background:var(--primary);
+    font-size:14px; font-weight:600; padding:11px 20px; border-radius:20px; font-family:inherit; cursor:pointer;
+  }
+  .btn-solid:hover{ background:#463adf; }
+  .btn-solid:disabled{ background:var(--anon); cursor:default; }
+
+  /* ---- directory ---- */
+  .dir-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:28px; padding:30px 32px 22px; flex-wrap:wrap; }
+  .dir-head-copy{ flex:1; min-width:280px; }
+  .dir-head h2{ font-size:26px; margin:0 0 8px; font-weight:800; letter-spacing:-0.01em; }
+  .dir-head p{ margin:0; font-size:14px; color:var(--ink-soft); line-height:1.55; max-width:100%; }
+  .dir-head .btn-solid{ flex:none; margin-top:2px; }
+  .dir-list{ display:flex; flex-direction:column; gap:14px; padding:0 32px 36px; }
+  .group-row{
+    display:flex; gap:18px; align-items:flex-start; border:1px solid var(--border); border-radius:18px;
+    padding:22px; background:var(--surface); transition:border-color .15s, box-shadow .15s, transform .15s;
+  }
+  .group-row.clickable{ cursor:pointer; }
+  .group-row.clickable:hover{ border-color:var(--primary); box-shadow:0 16px 32px -20px rgba(26,26,26,0.28); transform:translateY(-1px); }
+  .group-row.clickable:hover .group-row-title{ text-decoration:underline; }
+  .group-thumb{
+    width:60px; height:60px; border-radius:16px; flex:none; display:flex; align-items:center; justify-content:center;
+    color:#fff; font-weight:800; font-size:17px; background:linear-gradient(155deg, var(--primary) 0%, #8A7CFF 100%);
+    box-shadow:0 10px 20px -10px rgba(84,72,238,0.5);
+  }
+  .group-thumb.thumb-b{ background:linear-gradient(155deg,#2FAE86 0%,#136B4C 100%); box-shadow:0 10px 20px -10px rgba(19,107,76,0.45); }
+  .group-thumb.thumb-c{ background:linear-gradient(155deg,#A88CF6 0%,#7C5CE8 100%); box-shadow:0 10px 20px -10px rgba(124,92,232,0.45); }
+  .group-row-main{ flex:1; min-width:0; }
+  .group-row-title-line{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:5px; }
+  .group-row-title{ margin:0; font-size:16.5px; font-weight:700; color:var(--primary); }
+  .group-row-meta{ font-size:12.5px; color:var(--ink-soft); font-weight:600; margin:0 0 8px; }
+  .group-row-desc{
+    margin:0; font-size:13.5px; color:var(--ink); line-height:1.55; max-width:100%;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .topic-meta{ font-size:12px; font-weight:600; color:var(--primary); }
+  .seed-tag{
+    font-size:10px; font-weight:800; letter-spacing:.02em; text-transform:uppercase; color:var(--ink-soft);
+    background:var(--canvas); padding:3px 9px; border-radius:8px; white-space:nowrap;
+  }
+
+  /* ---- modal-style screens ---- */
+  .modal-wrap{ background:#EDEBF8; padding:56px 24px; display:flex; justify-content:center; flex:1; }
+  .modal{
+    background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:30px 32px;
+    max-width:520px; width:100%; display:flex; flex-direction:column; gap:18px; box-shadow:0 24px 48px -24px rgba(26,26,26,0.28);
+    align-self:flex-start;
+  }
+  .modal h2{ margin:0; font-size:20px; font-weight:800; }
+  .modal-sub{ margin:0; font-size:13px; color:var(--ink-soft); line-height:1.5; }
+  .field label{ display:block; font-size:13px; font-weight:600; margin-bottom:6px; }
+  .field input.box, .field textarea.box{
+    width:100%; border:1px solid var(--border); border-radius:10px; padding:12px 14px;
+    font-size:13px; font-family:inherit; color:var(--ink); background:var(--surface);
+  }
+  .field input.box:focus, .field textarea.box:focus{ outline:2px solid var(--primary); outline-offset:1px; }
+  .field textarea.box{ min-height:80px; resize:vertical; line-height:1.5; }
+  .field textarea.box.tall{ min-height:112px; }
+  .req-note{ display:flex; gap:10px; background:var(--canvas); border-radius:10px; padding:13px 14px; font-size:12.5px; color:var(--ink-soft); line-height:1.55; }
+  .req-note svg{ flex:none; margin-top:1px; color:var(--ink-soft); }
+  .callout{ display:flex; gap:10px; background:var(--primary-bg); border-radius:10px; padding:13px 14px; font-size:12.5px; color:var(--primary); line-height:1.5; }
+  .callout svg{ flex:none; margin-top:1px; }
+  .modal-actions{ display:flex; justify-content:flex-end; gap:12px; }
+  .btn-ghost{
+    border:1px solid var(--border); background:none; color:var(--ink-soft); font-size:14px; font-weight:600;
+    font-family:inherit; padding:11px 20px; border-radius:20px; cursor:pointer;
+  }
+  .btn-ghost:hover{ border-color:var(--ink-soft); color:var(--ink); }
+
+  /* ---- confirmation / state screens ---- */
+  .state-wrap{ padding:90px 32px; display:flex; flex-direction:column; align-items:center; text-align:center; gap:16px; }
+  .state-icon{ width:64px; height:64px; border-radius:50%; background:var(--success-bg); color:var(--success); display:flex; align-items:center; justify-content:center; }
+  .state-wrap h2{ margin:0; font-size:22px; font-weight:800; }
+  .state-wrap p{ margin:0; font-size:14px; color:var(--ink-soft); max-width:440px; line-height:1.6; }
+  .state-actions{ display:flex; gap:12px; margin-top:6px; }
+
+  /* ---- inside a group: thread list ---- */
+  .group-banner{ background:linear-gradient(160deg, var(--primary-bg) 0%, var(--surface) 78%); border-bottom:1px solid var(--border); }
+  .group-header{ display:flex; align-items:center; justify-content:space-between; gap:16px; padding:32px 32px 20px; flex-wrap:wrap; }
+  .group-id{ display:flex; align-items:center; gap:16px; }
+  .group-icon{
+    width:56px; height:56px; border-radius:16px; flex:none; background:linear-gradient(155deg, var(--primary) 0%, #8A7CFF 100%);
+    color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:19px;
+    box-shadow:0 12px 22px -10px rgba(84,72,238,0.55);
+  }
+  .group-id h2{ margin:0 0 4px; font-size:23px; font-weight:800; letter-spacing:-0.01em; }
+  .group-id .group-meta{ font-size:12.5px; color:var(--ink-soft); font-weight:600; }
+  .group-desc-row{ padding:0 32px 24px; }
+  .group-desc-row p{ margin:0; font-size:13.5px; color:var(--ink-soft); max-width:640px; line-height:1.55; }
+  .thread-toolbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 32px; background:var(--canvas); border-bottom:1px solid var(--border); }
+  .thread-filters{ display:flex; gap:6px; }
+  .thread-filters span{ font-size:12.5px; font-weight:600; color:var(--ink-soft); padding:7px 14px; border-radius:16px; cursor:default; }
+  .thread-filters span.on{ background:var(--primary); color:#fff; box-shadow:0 8px 16px -8px rgba(84,72,238,0.6); }
+  .thread-section-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 32px 8px; }
+  .thread-section-title{ display:flex; align-items:center; gap:6px; font-size:14px; font-weight:800; color:var(--ink); }
+  .thread-section-title svg{ color:var(--ink-soft); }
+  .thread-section-count{ font-size:12px; color:var(--ink-soft); font-weight:600; }
+  .thread-list{ display:flex; flex-direction:column; padding:0 32px 28px; }
+  .thread-row{ display:flex; align-items:flex-start; gap:12px; padding:14px 0; border-bottom:1px solid var(--border); }
+  .thread-row.clickable{ cursor:pointer; }
+  .thread-row.clickable:hover .thread-title{ color:#463adf; text-decoration:underline; }
+  .thread-row .discuss-avatar{ margin-top:2px; width:28px; height:28px; font-size:11px; }
+  .thread-row .discuss-avatar.named{ background:var(--primary-bg); color:var(--primary); }
+  .thread-main{ flex:1; min-width:0; }
+  .thread-title-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .thread-title{ font-size:14.5px; font-weight:700; color:var(--primary); letter-spacing:-0.005em; }
+  .pin-tag{
+    display:flex; align-items:center; gap:4px; font-size:10px; font-weight:800; text-transform:uppercase;
+    color:var(--vouch-gold); background:var(--vouch-gold-bg); padding:3px 8px 3px 7px; border-radius:7px;
+  }
+  .thread-meta-line{ font-size:12px; color:var(--ink-soft); margin-top:3px; }
+  .thread-meta-line .new-count{ color:var(--danger); font-weight:700; }
+  .thread-preview{ font-size:12.5px; color:var(--ink-soft); margin-top:3px; line-height:1.45; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .thread-tags{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+  .thread-tags span{ display:flex; align-items:center; gap:4px; font-size:11px; font-weight:700; color:var(--primary); background:var(--primary-bg); padding:4px 10px; border-radius:8px; }
+  .thread-tags span.tag-explainer{ color:#136B4C; background:#E3F5EE; }
+  .thread-tags span.tag-debate{ color:#6B4FE0; background:#EFEAFC; }
+  .thread-updated{ flex:none; text-align:right; font-size:12px; color:var(--ink-soft); min-width:120px; padding-top:2px; }
+
+  /* ---- new thread composer ---- */
+  .composer-body{ padding:26px 32px 40px; display:flex; flex-direction:column; gap:18px; max-width:680px; margin:0 auto; }
+  .switch{ display:inline-flex; align-items:center; gap:10px; cursor:pointer; user-select:none; }
+  .switch-track{ width:38px; height:22px; border-radius:12px; background:var(--primary); position:relative; flex:none; transition:background .15s; }
+  .switch-track::after{ content:''; position:absolute; top:2px; left:18px; width:18px; height:18px; border-radius:50%; background:#fff; transition:left .15s; }
+  .switch.off .switch-track{ background:var(--border); }
+  .switch.off .switch-track::after{ left:2px; }
+  .switch-label{ font-size:13px; font-weight:600; color:var(--ink); }
+  .switch-sub{ font-size:12px; color:var(--ink-soft); margin:2px 0 0 48px; }
+  .compose-toolrow{ display:flex; gap:10px; }
+  .compose-toolbtn{
+    display:flex; align-items:center; gap:6px; border:1px solid var(--border); background:var(--surface);
+    color:var(--ink-soft); font-size:12.5px; font-weight:700; padding:7px 12px; border-radius:16px;
+    font-family:inherit; cursor:pointer;
+  }
+  .compose-toolbtn:hover{ color:var(--primary); border-color:var(--primary); }
+  .compose-toolbtn.active{ color:var(--primary); border-color:var(--primary); background:var(--primary-bg); }
+  .poll-builder{ border:1px dashed var(--border); border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:8px; }
+  .poll-builder input{ border:1px solid var(--border); border-radius:8px; padding:9px 12px; font-size:13px; font-family:inherit; width:100%; }
+  .poll-builder-label{ font-size:11.5px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.03em; }
+  .composer-actions{ display:flex; justify-content:flex-end; gap:12px; padding-top:6px; border-top:1px solid var(--border); }
+
+  /* ---- thread detail ---- */
+  .thread-layout{ padding:26px 32px 60px; max-width:1080px; margin:0 auto; }
+  .thread-main-col{ display:flex; flex-direction:column; gap:26px; max-width:700px; margin:0 auto; }
+  .post-block{ display:flex; flex-direction:column; gap:10px; }
+  .poster-row{ display:flex; align-items:center; gap:12px; }
+  .post-title{ font-size:22px; font-weight:800; line-height:1.35; margin:0; letter-spacing:-0.01em; }
+  .post-text{ font-size:14.5px; color:var(--ink-soft); line-height:1.65; margin:0; max-width:70ch; }
+  .section-title{ font-size:16px; font-weight:800; margin:0 0 14px; }
+  .steps-list{ display:flex; flex-direction:column; gap:10px; }
+  .step-row{ display:flex; gap:14px; border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+  .step-row.top{ background:var(--primary-bg); border-color:transparent; }
+  .step-name-row{ display:flex; align-items:center; gap:8px; margin-bottom:3px; }
+  .step-name-row b{ font-size:13.5px; }
+  .vouch-chip{
+    display:flex; align-items:center; gap:3px; background:var(--vouch-gold-bg); color:var(--vouch-gold);
+    font-size:10px; font-weight:800; padding:2px 7px; border-radius:8px;
+  }
+  .step-text{ font-size:13.5px; color:var(--ink); line-height:1.55; }
+  .add-step{
+    display:flex; align-items:center; gap:8px; border:1px dashed var(--border); border-radius:10px; padding:13px 16px;
+    color:var(--ink-soft); font-size:13.5px; margin-top:2px; background:none; width:100%; text-align:left;
+    font-family:inherit; cursor:pointer;
+  }
+  .add-step:hover{ border-color:var(--primary); color:var(--primary); }
+  .discuss-list{ display:flex; flex-direction:column; gap:22px; }
+  .discuss-row{ display:flex; gap:12px; }
+  .discuss-avatar{
+    width:32px; height:32px; border-radius:50%; background:var(--anon); flex:none;
+    display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:var(--ink);
+  }
+  .discuss-avatar.vouched{ background:var(--vouch-gold-bg); color:var(--vouch-gold); }
+  .discuss-body{ flex:1; min-width:0; }
+  .discuss-meta{ display:flex; align-items:center; gap:8px; margin-bottom:2px; flex-wrap:wrap; }
+  .discuss-meta b{ font-size:13px; }
+  .discuss-meta span{ font-size:11px; color:var(--ink-soft); }
+  .discuss-text{ font-size:13.5px; color:var(--ink); line-height:1.55; }
+  .discuss-text a{ color:var(--primary); text-decoration:underline; text-decoration-color:rgba(84,72,238,.35); text-underline-offset:2px; }
+  .discuss-actions{ display:flex; align-items:center; gap:16px; margin-top:7px; }
+  .discuss-actions button{
+    background:none; border:none; padding:0; font-family:inherit; cursor:pointer; font-size:12px; font-weight:600;
+    color:var(--ink-soft); display:flex; align-items:center; gap:5px;
+  }
+  .discuss-actions button:hover{ color:var(--primary); }
+  .reply-list{ margin:14px 0 0 16px; padding-left:20px; border-left:2px solid var(--border); display:flex; flex-direction:column; gap:18px; }
+  .discuss-composer{ display:flex; align-items:center; gap:10px; margin-top:4px; padding-top:20px; border-top:1px solid var(--border); }
+  .discuss-composer input{
+    flex:1; border:1px solid var(--border); border-radius:20px; padding:11px 16px; font-size:13.5px;
+    font-family:inherit; color:var(--ink); background:var(--surface);
+  }
+  .discuss-composer input::placeholder{ color:var(--ink-soft); }
+  .load-more{
+    align-self:flex-start; background:none; border:none; font-family:inherit; cursor:pointer;
+    color:var(--primary); font-size:13px; font-weight:600; padding:0;
+  }
+
+  /* ---- rich message: turn into, poll, image ---- */
+  .msg-actions{ display:flex; align-items:center; gap:16px; margin-top:8px; flex-wrap:wrap; }
+  .turninto-wrap{ position:relative; }
+  .turninto-btn{
+    display:flex; align-items:center; gap:5px; background:var(--primary-bg); border:none; cursor:pointer;
+    font-family:inherit; color:var(--primary); font-size:12px; font-weight:700; padding:5px 10px; border-radius:8px;
+  }
+  .turninto-btn:hover{ background:#e7e4fb; }
+  .turninto-menu{
+    position:absolute; top:calc(100% + 6px); left:0; z-index:5; width:210px; background:var(--surface);
+    border:1px solid var(--border); border-radius:12px; padding:6px; box-shadow:0 12px 28px -12px rgba(26,26,26,.22);
+    display:flex; flex-direction:column; gap:2px;
+  }
+  .turninto-menu a{
+    display:flex; align-items:center; gap:9px; padding:9px 10px; border-radius:8px; font-size:13px; font-weight:600;
+    color:var(--ink); text-decoration:none;
+  }
+  .turninto-menu a:hover{ background:var(--canvas); }
+  .turninto-menu a svg{ flex:none; color:var(--primary); }
+  .msg-image{
+    margin-top:10px; width:280px; max-width:100%; height:160px; border-radius:12px;
+    background:linear-gradient(135deg,#DCE0FB 0%, #F3F2FE 55%, #FBE7E0 100%); border:1px solid var(--border);
+  }
+  .poll-card{
+    margin-top:10px; border:1px solid var(--border); border-radius:12px; padding:14px 16px;
+    display:flex; flex-direction:column; gap:10px; width:100%;
+  }
+  .poll-q{ font-size:13.5px; font-weight:700; }
+  .poll-opt{ display:flex; flex-direction:column; gap:4px; cursor:pointer; padding:4px 6px; margin:-4px -6px; border-radius:8px; }
+  .poll-card:not(.voted) .poll-opt:hover{ background:var(--primary-bg); }
+  .poll-card.voted .poll-opt{ cursor:default; }
+  .poll-opt-row{ display:flex; justify-content:space-between; font-size:12.5px; color:var(--ink); font-weight:600; }
+  .poll-opt.picked .poll-opt-row{ color:var(--primary); font-weight:800; }
+  .poll-bar-track{ height:8px; border-radius:5px; background:var(--canvas); overflow:hidden; }
+  .poll-bar-fill{ height:100%; border-radius:5px; background:var(--primary); }
+  .poll-meta{ font-size:11.5px; color:var(--ink-soft); }
+  .composer-tools{ display:flex; align-items:center; gap:14px; color:var(--ink-soft); }
+
+  /* ---- turn into explainer ---- */
+  .explainer-body{ padding:26px 32px 40px; display:flex; flex-direction:column; gap:18px; max-width:680px; margin:0 auto; }
+
+  /* ---- turn into debate: invite screen ---- */
+  .invite-body{ padding:0; display:flex; justify-content:center; background:#EDEBF8; flex:1; }
+  .invite-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:30px 32px;
+    max-width:520px; width:100%; margin:40px 24px; display:flex; flex-direction:column; gap:18px;
+    box-shadow:0 24px 48px -24px rgba(26,26,26,0.28);
+  }
+  .invite-source{ display:flex; gap:10px; background:var(--canvas); border-radius:10px; padding:12px 14px; font-size:12.5px; color:var(--ink-soft); line-height:1.5; }
+  .invite-section-label{ font-size:12px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.03em; }
+  .recommend-list{ display:flex; flex-direction:column; gap:2px; }
+  .recommend-row{ display:flex; align-items:center; gap:12px; padding:9px 0; border-bottom:1px solid var(--border); }
+  .recommend-row:last-child{ border-bottom:none; }
+  .recommend-check{ display:flex; align-items:center; cursor:pointer; }
+  .recommend-info{ flex:1; min-width:0; }
+  .recommend-name{ font-size:13.5px; font-weight:700; }
+  .recommend-sub{ font-size:11.5px; color:var(--ink-soft); }
+  .recommend-add{
+    font-size:11.5px; font-weight:700; color:var(--primary); background:none; border:none; font-family:inherit;
+    cursor:pointer; white-space:nowrap;
+  }
+  .recommend-add.added{ color:var(--success); cursor:default; }
+  .checkbox{
+    width:19px; height:19px; border-radius:6px; border:1.5px solid var(--border); flex:none;
+    display:flex; align-items:center; justify-content:center; color:#fff;
+  }
+  .checkbox.checked{ background:var(--primary); border-color:var(--primary); }
+</style>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="topbar-brand">Diskorse <span>Collective &middot; dev handoff prototype</span></div>
+  </div>
+  <div class="topbar-center">
+    <button class="navbtn" id="backBtn" title="Back">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <button class="navbtn" id="homeBtn" title="Reset to feed">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9.5a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"/></svg>
+    </button>
+    <div class="crumb" id="crumbLabel">1 / 11</div>
+  </div>
+  <div class="topbar-right">
+    <button class="idxtoggle" id="idxToggleBtn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      All screens
+    </button>
+  </div>
+</div>
+
+<div class="backdrop" id="backdrop"></div>
+<div class="idxpanel" id="idxPanel">
+  <div class="idxpanel-head">
+    <div>
+      <h4>Screen index</h4>
+      <p>11 screens &middot; click to jump</p>
+    </div>
+    <button class="idxpanel-close" id="idxCloseBtn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+    </button>
+  </div>
+  <div class="idxpanel-body">
+    <div class="idx-group-label">Entry</div>
+    <div class="idx-list">
+      <div class="idx-item" data-id="feed"><div class="idx-num">1</div>Home feed</div>
+    </div>
+    <div class="idx-group-label">Directory &amp; requests</div>
+    <div class="idx-list">
+      <div class="idx-item" data-id="directory"><div class="idx-num">2</div>Collective directory</div>
+      <div class="idx-item" data-id="request"><div class="idx-num">3</div>Request a new group</div>
+      <div class="idx-item" data-id="request-sent"><div class="idx-num">4</div>Request submitted</div>
+    </div>
+    <div class="idx-group-label">Group &amp; threads</div>
+    <div class="idx-list">
+      <div class="idx-item" data-id="group"><div class="idx-num">5</div>Inside a group</div>
+      <div class="idx-item" data-id="new-thread"><div class="idx-num">6</div>New thread composer</div>
+      <div class="idx-item" data-id="thread"><div class="idx-num">7</div>Thread detail</div>
+    </div>
+    <div class="idx-group-label">Turn into</div>
+    <div class="idx-list">
+      <div class="idx-item" data-id="turn-explainer"><div class="idx-num">8</div>Turn into Explainer</div>
+      <div class="idx-item" data-id="explainer-done"><div class="idx-num">9</div>Explainer published</div>
+      <div class="idx-item" data-id="turn-debate"><div class="idx-num">10</div>Turn into Debate</div>
+      <div class="idx-item" data-id="debate-done"><div class="idx-num">11</div>Debate created</div>
+    </div>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="stage-inner">
+
+    <!-- 1: HOME FEED -->
+    <div id="scr-feed">
+      <div class="frame">
+        <div class="appbar">
+<div class="appbar-inner">
+          <div class="avatar"></div>
+          <div class="wordmark">diskorse</div>
+          <div class="appbar-right">
+            <div class="icon-btn">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              <span class="badge">7</span>
+            </div>
+            <div class="plus-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            </div>
+            <div class="searchbar">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              Search debates, news, collectives..
+            </div>
+          </div>
+        </div></div>
+        <div class="navtabs">
+<div class="navtabs-inner">
+          <div class="navtab active">For You</div>
+          <div class="navtab">Rooms</div>
+          <div class="navtab">My Rooms</div>
+          <div class="navtab">Friends</div>
+          <div class="navtab feature" data-nav="directory">Collective <span class="newchip">NEW</span></div>
+        </div></div>
+        <div class="content-col">
+        <div class="happening">
+          <div class="happening-head">
+            <div><span class="happening-title">Happening now</span><span class="happening-sub">in the areas you claimed</span></div>
+            <button class="happening-seeall" type="button">See all</button>
+          </div>
+          <div class="happening-grid">
+            <div class="happening-card happening-card--article">
+              <div class="happening-banner">
+                <span class="happening-tag">ARTICLE</span>
+                <div class="happening-avatar">ID</div>
+              </div>
+              <div class="happening-body">
+                <h4>Turn what you know into today's Article</h4>
+                <p>A few people in your rooms asked the same question this week. A clear explainer earns more trust than another comment.</p>
+                <button class="happening-cta" type="button">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="happening-card happening-card--problem">
+              <div class="happening-banner">
+                <span class="happening-tag">PROBLEM SOLVER</span>
+                <div class="happening-avatar">AR</div>
+              </div>
+              <div class="happening-body">
+                <h4>Get paid to pull apart somebody's idea</h4>
+                <p>Three of six slots are open on a pricing decision worth two years of revenue. Contributors are paid on publish.</p>
+                <button class="happening-cta" type="button">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="happening-card happening-card--counsel">
+              <div class="happening-banner">
+                <span class="happening-tag">COUNSEL</span>
+                <div class="happening-avatar">ML</div>
+              </div>
+              <div class="happening-body">
+                <h4>Forty minutes with somebody who has done it</h4>
+                <p>Two slots this week with a lawyer who has taken three marketplaces through their first regulator.</p>
+                <button class="happening-cta" type="button">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div class="identity">
+              <div class="identity-avatar" style="background:var(--primary); color:#fff;">ID</div>
+              <div>
+                <div class="identity-name">Ines Duarte</div>
+                <div class="identity-time">4d</div>
+              </div>
+            </div>
+            <div class="feed-post-tag">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>
+              Article
+            </div>
+          </div>
+          <h3 class="card-title">Charging per seat punishes exactly the teams you want adopting you</h3>
+          <p class="card-body">The session came to a tense close. Fraught with disruptions and multiple adjournments, it was adjourned sine die aft...</p>
+          <div class="feed-meta-row">
+            <span class="meta-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>6 min read</span>
+            <span class="feed-tag-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.6 2.6a2 2 0 0 0-1.42-.6H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .6 1.42l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4Z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg>legislation</span>
+          </div>
+          <hr class="card-divider" />
+          <div class="engagement-row">
+            <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>2</span>
+            <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/></svg>0</span>
+            <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/></svg>1</span>
+            <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v14"/></svg></span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div class="identity">
+              <div class="identity-avatar">?</div>
+              <div>
+                <div class="identity-name">Anonymous</div>
+                <div class="identity-time">2h</div>
+              </div>
+            </div>
+            <div class="typetag">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="9" r="3"/><circle cx="16" cy="10.5" r="2.4"/><path d="M2.5 19c0-3 2.7-5 6-5s6 2 6 5M14.5 19c0-2.2 1.9-3.8 4-3.8s4 1.6 4 3.8"/></svg>
+              Collective
+            </div>
+          </div>
+          <div class="topic-line">Collective: Life After Chemo</div>
+          <h3 class="card-title">How do I manage the fatigue that never seems to go away?</h3>
+          <p class="card-body">Treatment ended fourteen months ago and everyone keeps telling me I should feel back to normal by now. I am not sure what is reasonable to expect anymore, or what is worth raising with my oncologist versus just accepting.</p>
+          <div class="suggestion-box">
+            <div class="suggestion-label">Top suggested next step &middot; 24 votes</div>
+            <div class="suggestion-row">
+              <div class="votecol">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4 3 18h18Z"/></svg>
+                <span>24</span>
+              </div>
+              <div class="suggestion-text"><b>Dr. Amara Fields, Oncology Nurse</b>This is called cancer related fatigue and it is real, not in your head. Ask your oncologist specifically about ruling out thyroid and anemia first.</div>
+            </div>
+          </div>
+          <div class="card-foot">
+            <div class="engagement">
+              <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>19</span>
+              <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/></svg>2</span>
+              <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/></svg>24</span>
+              <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v14"/></svg></span>
+            </div>
+            <button class="btn-outline" data-nav="group">View Collective</button>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2: DIRECTORY -->
+    <div id="scr-directory" hidden>
+      <div class="frame">
+        <div class="appbar">
+<div class="appbar-inner">
+          <div class="avatar"></div>
+          <div class="wordmark">diskorse</div>
+          <div class="searchbar" style="min-width:260px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            Search debates, news, collectives..
+          </div>
+        </div></div>
+        <div class="navtabs">
+<div class="navtabs-inner">
+          <div class="navtab" data-nav="feed">For You</div>
+          <div class="navtab">Rooms</div>
+          <div class="navtab">My Rooms</div>
+          <div class="navtab">Friends</div>
+          <div class="navtab active" style="color:var(--primary);">Collective</div>
+        </div></div>
+        <div class="content-col">
+        <div class="dir-head">
+          <div class="dir-head-copy">
+            <h2>Collective</h2>
+            <p>Groups to ask, suggest, and vote on what to do next. Diskorse starts and moderates every group, so no single person holds authority over who gets to post. Nothing here is ever monetized.</p>
+          </div>
+          <button class="btn-solid" data-nav="request">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            Request a new group
+          </button>
+        </div>
+        <div class="dir-list">
+          <div class="group-row">
+            <div class="group-thumb">PA</div>
+            <div class="group-row-main">
+              <div class="group-row-title-line">
+                <h3 class="group-row-title">Parents After Loss</h3>
+                <span class="seed-tag">Started by Diskorse</span>
+              </div>
+              <div class="group-row-meta">340 members &middot; 46 threads &middot; Active 12m ago</div>
+              <p class="group-row-desc">For parents grieving the loss of a child, any cause, any age. A quiet, moderated space to talk through what actually helps on the hardest days.</p>
+            </div>
+          </div>
+          <div class="group-row clickable" data-nav="group">
+            <div class="group-thumb thumb-b">LC</div>
+            <div class="group-row-main">
+              <div class="group-row-title-line">
+                <h3 class="group-row-title">Life After Chemo</h3>
+                <span class="seed-tag">Started by Diskorse</span>
+              </div>
+              <div class="group-row-meta">512 members &middot; 88 threads &middot; Active 3h ago</div>
+              <p class="group-row-desc">Practical and emotional support for cancer survivors figuring out what comes next. Any thread here can turn into a Debate or an Explainer if the conversation earns it.</p>
+            </div>
+          </div>
+          <div class="group-row">
+            <div class="group-thumb thumb-c">CP</div>
+            <div class="group-row-main">
+              <div class="group-row-title-line">
+                <h3 class="group-row-title">Career Pivots After Layoffs</h3>
+                <span class="seed-tag">Requested by a user, approved Aug 12</span>
+              </div>
+              <div class="group-row-meta">128 members &middot; 31 threads &middot; Active 1d ago</div>
+              <p class="group-row-desc">Figuring out what is next after losing a job you thought was secure. Notes on severance, interviewing again, and rebuilding a routine.</p>
+            </div>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3: REQUEST A NEW GROUP -->
+    <div id="scr-request" hidden>
+      <div class="frame">
+        <div class="appbar">
+<div class="appbar-inner">
+          <div class="avatar"></div>
+          <div class="wordmark">diskorse</div>
+          <div style="width:38px;"></div>
+        </div></div>
+        <div class="modal-wrap">
+          <div class="modal">
+            <div>
+              <h2>Request a new group</h2>
+              <p class="modal-sub">Once you submit this, our team reviews it, sets it up, and moderates it going forward. Nobody, including you, owns a group or controls who else can post in it.</p>
+            </div>
+            <div class="field">
+              <label>What should the group be about</label>
+              <input class="box" id="reqTopic" type="text" placeholder="e.g. Living with a chronic illness diagnosis" />
+            </div>
+            <div class="field">
+              <label>Why does this need its own group</label>
+              <textarea class="box tall" id="reqReason" placeholder="A sentence or two on who this is for and why the existing groups do not already cover it."></textarea>
+            </div>
+            <div class="req-note">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+              We usually review requests within two to three days. This space can never carry ads, paid sessions, or paid content, whichever group it becomes.
+            </div>
+            <div class="modal-actions">
+              <button class="btn-ghost" data-back>Cancel</button>
+              <button class="btn-solid" id="submitReqBtn">Submit request</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4: REQUEST SUBMITTED -->
+    <div id="scr-request-sent" hidden>
+      <div class="frame">
+        <div class="appbar">
+<div class="appbar-inner">
+          <button class="back-link" data-back>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Collective
+          </button>
+          <div class="wordmark">diskorse</div>
+          <div style="width:60px;"></div>
+        </div></div>
+        <div class="state-wrap">
+          <div class="state-icon">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          </div>
+          <h2>Request submitted</h2>
+          <p>We will review this within two to three days and email you when it is ready. If we approve it, Diskorse creates and moderates the group from day one, the same as every other group in Collective.</p>
+          <div class="state-actions">
+            <button class="btn-solid" data-nav="directory">Back to Collective</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5: INSIDE A GROUP -->
+    <div id="scr-group" hidden>
+      <div class="frame">
+        <div class="appbar">
+<div class="appbar-inner">
+          <button class="back-link" data-nav="directory">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Collective
+          </button>
+          <div class="wordmark">diskorse</div>
+          <div style="width:60px;"></div>
+        </div></div>
+        <div class="content-col">
+        <div class="group-banner">
+        <div class="group-header">
+          <div class="group-id">
+            <div class="group-icon">LC</div>
+            <div>
+              <h2>Life After Chemo</h2>
+              <div class="group-meta">512 members &middot; 88 threads &middot; Started by Diskorse</div>
+            </div>
+          </div>
+          <button class="btn-solid" data-nav="new-thread">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            New thread
+          </button>
+        </div>
+        <div class="group-desc-row">
+          <p>Practical and emotional support for cancer survivors figuring out what comes next. Any thread here can turn into a Debate or an Explainer if the conversation earns it.</p>
+        </div>
+        </div>
+        <div class="thread-toolbar">
+          <div class="thread-filters"><span class="on">Active</span><span>New</span><span>Most replies</span></div>
+          <div class="thread-filters"><span>Pinned first</span></div>
+        </div>
+        <div class="thread-section-head">
+          <div class="thread-section-title">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+            All threads
+          </div>
+          <div class="thread-section-count">Showing 4 of 88 threads &mdash; 145 replies total</div>
+        </div>
+        <div class="thread-list" id="groupThreadList">
+          <div class="thread-row clickable" data-nav="thread">
+            <div class="discuss-avatar">?</div>
+            <div class="thread-main">
+              <div class="thread-title-row"><span class="pin-tag"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M16 3l5 5-4 2-2 6-2-2-5 5-1-1 5-5-2-2 6-2 2-4z"/></svg>Pinned</span><span class="thread-title">How do I manage the fatigue that never seems to go away?</span></div>
+              <div class="thread-meta-line">By Anonymous &middot; 24 replies <span class="new-count">(6 new)</span></div>
+              <div class="thread-preview">Treatment ended fourteen months ago and everyone keeps telling me I should feel back to normal by now...</div>
+              <div class="thread-tags"><span>3 next steps</span><span>1 poll</span></div>
+            </div>
+            <div class="thread-updated">last active 2h ago</div>
+          </div>
+          <div class="thread-row clickable" data-nav="thread">
+            <div class="discuss-avatar named">R</div>
+            <div class="thread-main">
+              <div class="thread-title-row"><span class="thread-title">Anyone else's hair come back a totally different texture?</span></div>
+              <div class="thread-meta-line">By Renata O. &middot; 41 replies <span class="new-count">(12 new)</span></div>
+              <div class="thread-preview">Mine came back curly for the first time in my life, not complaining, just was not ready for it</div>
+              <div class="thread-tags"><span class="tag-explainer">turned into Explainer</span></div>
+            </div>
+            <div class="thread-updated">last active 6h ago</div>
+          </div>
+          <div class="thread-row clickable" data-nav="thread">
+            <div class="discuss-avatar">?</div>
+            <div class="thread-main">
+              <div class="thread-title-row"><span class="thread-title">Scan anxiety before every three month checkup</span></div>
+              <div class="thread-meta-line">By Anonymous &middot; 17 replies</div>
+              <div class="thread-preview">It does not matter how well I am doing, the week before scan results I cannot sleep</div>
+              <div class="thread-tags"><span>2 next steps</span></div>
+            </div>
+            <div class="thread-updated">last active 1d ago</div>
+          </div>
+          <div class="thread-row clickable" data-nav="thread">
+            <div class="discuss-avatar named">M</div>
+            <div class="thread-main">
+              <div class="thread-title-row"><span class="thread-title">Best compression sleeves for lymphedema, actually tested</span></div>
+              <div class="thread-meta-line">By Marcus T. &middot; 63 replies</div>
+              <div class="thread-preview">Went through six brands over two years, ranking them by what actually held up</div>
+              <div class="thread-tags"><span class="tag-debate">turned into Debate</span></div>
+            </div>
+            <div class="thread-updated">last active 2d ago</div>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6: NEW THREAD COMPOSER -->
+    <div id="scr-new-thread" hidden>
+      <div class="frame">
+        <div class="appbar">
+<div class="appbar-inner">
+          <button class="back-link" data-back>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Life After Chemo
+          </button>
+          <div class="wordmark">diskorse</div>
+          <div style="width:100px;"></div>
+        </div></div>
+        <div class="composer-body">
+          <h2 style="margin:0;font-size:20px;font-weight:800;">Start a new thread</h2>
+          <div>
+            <div class="switch" id="anonSwitch">
+              <div class="switch-track"></div>
+              <div class="switch-label">Post anonymously</div>
+            </div>
+            <p class="switch-sub">Your name is hidden from other members. Anonymous posts can still receive suggestions and replies, but cannot be turned into a Debate without an identified message.</p>
+          </div>
+          <div class="field">
+            <label>Thread title</label>
+            <input class="box" id="newThreadTitle" type="text" placeholder="What do you want to ask or start a conversation about?" />
+          </div>
+          <div class="field">
+            <label>First message</label>
+            <textarea class="box tall" id="newThreadBody" placeholder="Give people enough context to actually help."></textarea>
+          </div>
+          <div class="compose-toolrow">
+            <button class="compose-toolbtn" id="pollToggleBtn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4M17 12h4M12 3v4M12 17v4"/><circle cx="12" cy="12" r="8"/></svg>
+              Add a poll
+            </button>
+            <button class="compose-toolbtn" id="imgToggleBtn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+              Add an image
+            </button>
+          </div>
+          <div class="poll-builder" id="pollBuilder" hidden>
+            <div class="poll-builder-label">Poll</div>
+            <input type="text" placeholder="Ask a yes or no or multiple choice question.." />
+            <input type="text" placeholder="Option 1" />
+            <input type="text" placeholder="Option 2" />
+          </div>
+          <div id="imgPreview" hidden>
+            <div class="msg-image"></div>
+          </div>
+          <div class="composer-actions">
+            <button class="btn-ghost" data-back>Cancel</button>
+            <button class="btn-solid" id="postThreadBtn">Post thread</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7: THREAD DETAIL -->
+    <div id="scr-thread" hidden>
+      <div class="frame">
+        <div class="appbar">
+<div class="appbar-inner">
+          <button class="back-link" data-back>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Life After Chemo
+          </button>
+          <div class="wordmark">diskorse</div>
+          <div style="width:120px;"></div>
+        </div></div>
+        <div class="thread-layout">
+          <div class="thread-main-col">
+          <div class="post-block">
+            <div class="topic-line">Life After Chemo &middot; Pinned thread</div>
+            <div class="poster-row">
+              <div class="identity-avatar">?</div>
+              <div>
+                <div class="identity-name">Anonymous</div>
+                <div class="identity-time">Posted 4 days ago</div>
+              </div>
+            </div>
+            <h2 class="post-title">How do I manage the fatigue that never seems to go away, even a year after treatment ended?</h2>
+            <p class="post-text">Treatment ended fourteen months ago and everyone keeps telling me I should feel back to normal by now. I am not. Some days I cannot get through an afternoon without lying down. I do not know what is reasonable to expect anymore, or what is worth raising with my oncologist versus just accepting.</p>
+            <div class="poll-card" id="postPoll">
+              <div class="poll-q">Quick poll: has anyone actually gotten a straight answer from their oncologist on this?</div>
+              <div class="poll-opt" data-idx="0"><div class="poll-opt-row"><span>Yes, they took it seriously</span><span>34%</span></div><div class="poll-bar-track"><div class="poll-bar-fill" style="width:34%;"></div></div></div>
+              <div class="poll-opt" data-idx="1"><div class="poll-opt-row"><span>Sort of, had to push for it</span><span>48%</span></div><div class="poll-bar-track"><div class="poll-bar-fill" style="width:48%;"></div></div></div>
+              <div class="poll-opt" data-idx="2"><div class="poll-opt-row"><span>No, still dismissed as normal</span><span>18%</span></div><div class="poll-bar-track"><div class="poll-bar-fill" style="width:18%;"></div></div></div>
+              <div class="poll-meta" id="postPollMeta">96 votes &middot; poll added by the original poster</div>
+            </div>
+          </div>
+
+          <div>
+            <p class="section-title">Suggested next steps &middot; 3</p>
+            <div class="steps-list">
+              <div class="step-row top">
+                <div class="votecol"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4 3 18h18Z"/></svg><span>24</span></div>
+                <div>
+                  <div class="step-name-row"><b>Dr. Amara Fields, Oncology Nurse</b><span class="vouch-chip">&#9733; Vouched</span></div>
+                  <div class="step-text">This is called cancer related fatigue and it is real, not in your head and not a sign you are doing recovery wrong. Ask your oncologist specifically about ruling out thyroid and anemia before assuming it is permanent.</div>
+                </div>
+              </div>
+              <div class="step-row">
+                <div class="votecol"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4 3 18h18Z"/></svg><span>16</span></div>
+                <div>
+                  <div class="step-name-row"><b>Priya N., Survivor, 3 years out</b></div>
+                  <div class="step-text">Mine lasted almost two years. What helped most was treating rest as a scheduled part of my day instead of something I only did when I collapsed.</div>
+                </div>
+              </div>
+              <div class="step-row">
+                <div class="votecol"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4 3 18h18Z"/></svg><span>4</span></div>
+                <div>
+                  <div class="step-name-row"><b>Marcus T.</b></div>
+                  <div class="step-text">Following this, dealing with the same thing and did not know it had a name.</div>
+                </div>
+              </div>
+            </div>
+            <button class="add-step" type="button">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+              Suggest a next step, post under your real profile..
+            </button>
+          </div>
+
+          <div>
+            <p class="section-title">Discussion &middot; 14</p>
+            <div class="discuss-list" id="discussList">
+
+              <div>
+                <div class="discuss-row">
+                  <div class="discuss-avatar">A</div>
+                  <div class="discuss-body">
+                    <div class="discuss-meta"><b>Anonymous</b><span>3d</span></div>
+                    <div class="discuss-text">Thank you for asking this, I have been too embarrassed to bring it up with my own doctor. Kept assuming I was the only one still struggling this far out.</div>
+                    <div class="msg-actions">
+                      <div class="discuss-actions">
+                        <button><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>8</button>
+                        <button>Reply</button>
+                      </div>
+                      <div class="turninto-wrap">
+                        <button class="turninto-btn" type="button"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Turn into</button>
+                        <div class="turninto-menu" hidden>
+                          <a href="#" data-turn="explainer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2Z"/></svg>Turn into Explainer</a>
+                          <a href="#" data-turn="debate"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10M7 7l3-3M7 7l3 3M17 17H7M17 17l-3-3M17 17l-3 3"/></svg>Turn into Debate</a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="reply-list">
+                  <div class="discuss-row">
+                    <div class="discuss-avatar">P</div>
+                    <div class="discuss-body">
+                      <div class="discuss-meta"><b>Priya N.</b><span>3d</span></div>
+                      <div class="discuss-text">You are absolutely not alone in this, half my survivor group has some version of this conversation every few months. It genuinely never comes up until someone else says it first.</div>
+                      <div class="msg-actions">
+                        <div class="discuss-actions">
+                          <button><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>5</button>
+                          <button>Reply</button>
+                        </div>
+                        <div class="turninto-wrap">
+                          <button class="turninto-btn" type="button"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Turn into</button>
+                          <div class="turninto-menu" hidden>
+                            <a href="#" data-turn="explainer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2Z"/></svg>Turn into Explainer</a>
+                            <a href="#" data-turn="debate"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10M7 7l3-3M7 7l3 3M17 17H7M17 17l-3-3M17 17l-3 3"/></svg>Turn into Debate</a>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="discuss-row">
+                    <div class="discuss-avatar">A</div>
+                    <div class="discuss-body">
+                      <div class="discuss-meta"><b>Anonymous</b><span>2d</span></div>
+                      <div class="discuss-text">That actually helps more than you know.</div>
+                      <div class="discuss-actions">
+                        <button><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>2</button>
+                        <button>Reply</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div class="discuss-row">
+                  <div class="discuss-avatar">J</div>
+                  <div class="discuss-body">
+                    <div class="discuss-meta"><b>James K.</b><span>2d</span></div>
+                    <div class="discuss-text">Seconding the thyroid check, that was the answer for my wife. Her oncologist initially wrote it off as normal post treatment tiredness until we pushed for a full panel, matches what the <a href="#">NCCN survivorship guidelines</a> actually recommend screening for.</div>
+                    <div class="msg-image"></div>
+                    <div class="msg-actions">
+                      <div class="discuss-actions">
+                        <button><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>15</button>
+                        <button>Reply</button>
+                      </div>
+                      <div class="turninto-wrap">
+                        <button class="turninto-btn" type="button"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Turn into</button>
+                        <div class="turninto-menu" hidden>
+                          <a href="#" data-turn="explainer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2Z"/></svg>Turn into Explainer</a>
+                          <a href="#" data-turn="debate"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10M7 7l3-3M7 7l3 3M17 17H7M17 17l-3-3M17 17l-3 3"/></svg>Turn into Debate</a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="reply-list">
+                  <div class="discuss-row">
+                    <div class="discuss-avatar vouched">AF</div>
+                    <div class="discuss-body">
+                      <div class="discuss-meta"><b>Dr. Amara Fields</b><span class="vouch-chip">&#9733; Vouched</span><span>1d</span></div>
+                      <div class="discuss-text">Worth being specific here, TSH alone often misses it. Ask for a full panel including free T4, and if levels come back borderline normal but symptoms persist, ask about a referral anyway.</div>
+                      <div class="msg-actions">
+                        <div class="discuss-actions">
+                          <button><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>22</button>
+                          <button>Reply</button>
+                        </div>
+                        <div class="turninto-wrap">
+                          <button class="turninto-btn" type="button"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Turn into</button>
+                          <div class="turninto-menu" hidden>
+                            <a href="#" data-turn="explainer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2Z"/></svg>Turn into Explainer</a>
+                            <a href="#" data-turn="debate"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10M7 7l3-3M7 7l3 3M17 17H7M17 17l-3-3M17 17l-3 3"/></svg>Turn into Debate</a>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div class="discuss-row">
+                  <div class="discuss-avatar">M</div>
+                  <div class="discuss-body">
+                    <div class="discuss-meta"><b>Marcus T.</b><span>1d</span></div>
+                    <div class="discuss-text">Following this, dealing with the same thing and did not know it had a name. Found a decent overview here if it helps anyone else, <a href="#">what cancer related fatigue actually is</a>.</div>
+                    <div class="msg-actions">
+                      <div class="discuss-actions">
+                        <button><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>4</button>
+                        <button>Reply</button>
+                      </div>
+                      <div class="turninto-wrap">
+                        <button class="turninto-btn" type="button"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Turn into</button>
+                        <div class="turninto-menu" hidden>
+                          <a href="#" data-turn="explainer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2Z"/></svg>Turn into Explainer</a>
+                          <a href="#" data-turn="debate"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10M7 7l3-3M7 7l3 3M17 17H7M17 17l-3-3M17 17l-3 3"/></svg>Turn into Debate</a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div class="discuss-row">
+                  <div class="discuss-avatar">R</div>
+                  <div class="discuss-body">
+                    <div class="discuss-meta"><b>Renata O.</b><span>20h</span></div>
+                    <div class="discuss-text">My onc dismissed this for a year before I pushed for a referral to a survivorship clinic. If your hospital has one, ask to be referred, they specialize in exactly this instead of treating it as an afterthought.</div>
+                    <div class="msg-actions">
+                      <div class="discuss-actions">
+                        <button><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>11</button>
+                        <button>Reply</button>
+                      </div>
+                      <div class="turninto-wrap">
+                        <button class="turninto-btn" type="button"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Turn into</button>
+                        <div class="turninto-menu" hidden>
+                          <a href="#" data-turn="explainer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2Z"/></svg>Turn into Explainer</a>
+                          <a href="#" data-turn="debate"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10M7 7l3-3M7 7l3 3M17 17H7M17 17l-3-3M17 17l-3 3"/></svg>Turn into Debate</a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="reply-list">
+                  <div class="discuss-row">
+                    <div class="discuss-avatar">A</div>
+                    <div class="discuss-body">
+                      <div class="discuss-meta"><b>Anonymous</b><span>14h</span></div>
+                      <div class="discuss-text">I did not even know survivorship clinics were a thing, looking into this now, thank you.</div>
+                      <div class="discuss-actions">
+                        <button><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>3</button>
+                        <button>Reply</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div class="discuss-row">
+                  <div class="discuss-avatar">P</div>
+                  <div class="discuss-body">
+                    <div class="discuss-meta"><b>Priya N.</b><span>10h</span></div>
+                    <div class="discuss-text">Also just want to say, it does get better even if it takes longer than anyone tells you. Eighteen months in I have maybe one bad day a week instead of four.</div>
+                    <div class="msg-actions">
+                      <div class="discuss-actions">
+                        <button><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>19</button>
+                        <button>Reply</button>
+                      </div>
+                      <div class="turninto-wrap">
+                        <button class="turninto-btn" type="button"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Turn into</button>
+                        <div class="turninto-menu" hidden>
+                          <a href="#" data-turn="explainer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2Z"/></svg>Turn into Explainer</a>
+                          <a href="#" data-turn="debate"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10M7 7l3-3M7 7l3 3M17 17H7M17 17l-3-3M17 17l-3 3"/></svg>Turn into Debate</a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="moreReplies" hidden>
+                <div class="discuss-row">
+                  <div class="discuss-avatar">?</div>
+                  <div class="discuss-body">
+                    <div class="discuss-meta"><b>Anonymous</b><span>8h</span></div>
+                    <div class="discuss-text">Adding one more thing, the fatigue app my clinic gave me to log energy levels actually helped me notice patterns I could bring to my appointment.</div>
+                    <div class="discuss-actions">
+                      <button><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>6</button>
+                      <button>Reply</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="discuss-row">
+                  <div class="discuss-avatar">M</div>
+                  <div class="discuss-body">
+                    <div class="discuss-meta"><b>Marcus T.</b><span>5h</span></div>
+                    <div class="discuss-text">Which app was that, genuinely asking, mine just tells me to drink more water.</div>
+                    <div class="discuss-actions">
+                      <button><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>1</button>
+                      <button>Reply</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button class="load-more" id="loadMoreBtn" type="button">View 6 more replies</button>
+
+              <div class="discuss-composer">
+                <div class="discuss-avatar">?</div>
+                <input type="text" id="replyInput" placeholder="Add to the discussion.. replies here can stay anonymous" />
+                <div class="composer-tools">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4M17 12h4M12 3v4M12 17v4"/><circle cx="12" cy="12" r="8"/></svg>
+                </div>
+                <button class="btn-outline" style="padding:8px 16px;" id="postReplyBtn">Post</button>
+              </div>
+            </div>
+          </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8: TURN INTO EXPLAINER -->
+    <div id="scr-turn-explainer" hidden>
+      <div class="frame">
+        <div class="appbar">
+<div class="appbar-inner">
+          <button class="back-link" data-back>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Thread
+          </button>
+          <div class="wordmark">diskorse</div>
+          <div style="width:70px;"></div>
+        </div></div>
+        <div class="explainer-body">
+          <div>
+            <h2 style="margin:0;font-size:20px;font-weight:800;">Turn into an Explainer</h2>
+            <p class="modal-sub" style="margin-top:6px;">This publishes the message below as a standalone Explainer that people can find outside this discussion. Edit the title and body before publishing, the source thread stays linked underneath.</p>
+          </div>
+          <div class="invite-source">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2Z"/></svg>
+            <div>From <b>James K.</b> in Life After Chemo: "Seconding the thyroid check... matches what the NCCN survivorship guidelines actually recommend screening for."</div>
+          </div>
+          <div class="field">
+            <label>Explainer title</label>
+            <input class="box" id="explainerTitle" type="text" value="Why cancer related fatigue happens, and what to actually ask your oncologist" />
+          </div>
+          <div class="field">
+            <label>Explainer body</label>
+            <textarea class="box tall" id="explainerBody">Cancer related fatigue is a recognized post treatment condition, not something you should expect to push through on your own. Ask for a full thyroid panel including free T4, not just TSH, since TSH alone can miss it. If your hospital has a survivorship clinic, ask for a referral rather than waiting for your oncologist to bring it up.</textarea>
+          </div>
+          <div class="callout">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+            Explainers publish under a real profile. Since this message was posted anonymously, publishing will ask James K. to confirm attribution, or you can publish under your own profile as the person who converted it.
+          </div>
+          <div class="modal-actions">
+            <button class="btn-ghost" data-back>Cancel</button>
+            <button class="btn-solid" id="publishExplainerBtn">Publish Explainer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 9: EXPLAINER PUBLISHED -->
+    <div id="scr-explainer-done" hidden>
+      <div class="frame">
+        <div class="appbar">
+<div class="appbar-inner">
+          <button class="back-link" data-back>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Thread
+          </button>
+          <div class="wordmark">diskorse</div>
+          <div style="width:70px;"></div>
+        </div></div>
+        <div class="state-wrap">
+          <div class="state-icon">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          </div>
+          <h2>Explainer published</h2>
+          <p>Your Explainer is live and stays linked back to this thread. It now also shows up in Explainer feeds across Diskorse, and can earn its author Vouches like any other Explainer.</p>
+          <div class="state-actions">
+            <button class="btn-ghost" data-nav="group">Back to Life After Chemo</button>
+            <button class="btn-solid" data-nav="thread">Back to thread</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 10: TURN INTO DEBATE -->
+    <div id="scr-turn-debate" hidden>
+      <div class="frame">
+        <div class="appbar">
+<div class="appbar-inner">
+          <button class="back-link" data-back>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Thread
+          </button>
+          <div class="wordmark">diskorse</div>
+          <div style="width:70px;"></div>
+        </div></div>
+        <div class="invite-body">
+          <div class="invite-card">
+            <div>
+              <h2 style="margin:0;font-size:20px;font-weight:800;">Turn into a Debate</h2>
+              <p class="modal-sub" style="margin-top:6px;">This opens a Debate Arena from the message below. Invite people to argue a side, and we will notify them. Anonymous posters cannot be invited directly since there is no identity to invite.</p>
+            </div>
+            <div class="invite-source">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10M7 7l3-3M7 7l3 3M17 17H7M17 17l-3-3M17 17l-3 3"/></svg>
+              <div><b>James K.</b> in Life After Chemo: "Seconding the thyroid check... matches what the NCCN survivorship guidelines actually recommend screening for."</div>
+            </div>
+            <div>
+              <div class="invite-section-label">Recommended from this discussion</div>
+              <div class="recommend-list" id="recommendList">
+                <div class="recommend-row">
+                  <div class="recommend-check" data-checked="1"><div class="checkbox checked"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div></div>
+                  <div class="discuss-avatar vouched" style="width:32px;height:32px;font-size:12px;">AF</div>
+                  <div class="recommend-info">
+                    <div class="recommend-name">Dr. Amara Fields <span class="vouch-chip" style="margin-left:4px;">&#9733; Vouched</span></div>
+                    <div class="recommend-sub">Top suggested next step, replied in this thread</div>
+                  </div>
+                  <button class="recommend-add">+ Add to Network</button>
+                </div>
+                <div class="recommend-row">
+                  <div class="recommend-check" data-checked="1"><div class="checkbox checked"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div></div>
+                  <div class="discuss-avatar" style="width:32px;height:32px;font-size:12px;">P</div>
+                  <div class="recommend-info">
+                    <div class="recommend-name">Priya N.</div>
+                    <div class="recommend-sub">Replied twice in this discussion</div>
+                  </div>
+                  <button class="recommend-add">+ Add to Network</button>
+                </div>
+                <div class="recommend-row">
+                  <div class="recommend-check" data-checked="0"><div class="checkbox"></div></div>
+                  <div class="discuss-avatar" style="width:32px;height:32px;font-size:12px;">M</div>
+                  <div class="recommend-info">
+                    <div class="recommend-name">Marcus T.</div>
+                    <div class="recommend-sub">Replied in this discussion</div>
+                  </div>
+                  <button class="recommend-add">+ Add to Network</button>
+                </div>
+                <div class="recommend-row">
+                  <div class="recommend-check" data-checked="0"><div class="checkbox"></div></div>
+                  <div class="discuss-avatar" style="width:32px;height:32px;font-size:12px;">R</div>
+                  <div class="recommend-info">
+                    <div class="recommend-name">Renata O.</div>
+                    <div class="recommend-sub">Replied in this discussion</div>
+                  </div>
+                  <button class="recommend-add">+ Add to Network</button>
+                </div>
+              </div>
+            </div>
+            <div class="field">
+              <label>Invite someone else</label>
+              <input class="box" type="text" placeholder="Search by name, only people already in your Business or Friends Network can be added here" />
+            </div>
+            <div class="modal-actions">
+              <button class="btn-ghost" data-back>Cancel</button>
+              <button class="btn-solid" id="startDebateBtn">Start debate with 2 invited</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 11: DEBATE CREATED -->
+    <div id="scr-debate-done" hidden>
+      <div class="frame">
+        <div class="appbar">
+<div class="appbar-inner">
+          <button class="back-link" data-back>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Thread
+          </button>
+          <div class="wordmark">diskorse</div>
+          <div style="width:70px;"></div>
+        </div></div>
+        <div class="state-wrap">
+          <div class="state-icon">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          </div>
+          <h2 id="debateDoneHeading">Debate created</h2>
+          <p id="debateDoneBody">Your Debate Arena is live with the people you invited. We will notify them now, and anyone in Life After Chemo can join once it is public.</p>
+          <div class="state-actions">
+            <button class="btn-ghost" data-nav="group">Back to Life After Chemo</button>
+            <button class="btn-solid" data-nav="thread">Back to thread</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function(){
+  var screens = ['feed','directory','request','request-sent','group','new-thread','thread','turn-explainer','explainer-done','turn-debate','debate-done'];
+  var labels = {
+    'feed':'Home feed', 'directory':'Collective directory', 'request':'Request a new group',
+    'request-sent':'Request submitted', 'group':'Inside a group', 'new-thread':'New thread composer',
+    'thread':'Thread detail', 'turn-explainer':'Turn into Explainer', 'explainer-done':'Explainer published',
+    'turn-debate':'Turn into Debate', 'debate-done':'Debate created'
+  };
+  var hist = ['feed'];
+
+  function render(){
+    var current = hist[hist.length - 1];
+    screens.forEach(function(id){
+      var el = document.getElementById('scr-' + id);
+      if (el) el.hidden = (id !== current);
+    });
+    document.getElementById('crumbLabel').textContent =
+      (screens.indexOf(current) + 1) + ' / ' + screens.length + '  ·  ' + labels[current];
+    document.getElementById('backBtn').disabled = hist.length <= 1;
+    document.querySelectorAll('.idx-item').forEach(function(it){
+      it.classList.toggle('on', it.getAttribute('data-id') === current);
+    });
+    window.scrollTo(0, 0);
+  }
+
+  function nav(id){
+    if (id === hist[hist.length - 1]) return;
+    hist.push(id);
+    render();
+  }
+  function navReset(id){ hist = [id]; render(); }
+  function goBack(){ if (hist.length > 1) { hist.pop(); render(); } }
+
+  // wire every element carrying data-nav / data-back
+  document.querySelectorAll('[data-nav]').forEach(function(el){
+    el.addEventListener('click', function(){ nav(el.getAttribute('data-nav')); });
+  });
+  document.querySelectorAll('[data-back]').forEach(function(el){
+    el.addEventListener('click', function(){ goBack(); });
+  });
+
+  document.getElementById('backBtn').addEventListener('click', goBack);
+  document.getElementById('homeBtn').addEventListener('click', function(){ navReset('feed'); });
+
+  // screen index panel
+  var idxPanel = document.getElementById('idxPanel');
+  var backdrop = document.getElementById('backdrop');
+  function openIdx(){ idxPanel.classList.add('open'); backdrop.classList.add('open'); }
+  function closeIdx(){ idxPanel.classList.remove('open'); backdrop.classList.remove('open'); }
+  document.getElementById('idxToggleBtn').addEventListener('click', openIdx);
+  document.getElementById('idxCloseBtn').addEventListener('click', closeIdx);
+  backdrop.addEventListener('click', closeIdx);
+  document.querySelectorAll('.idx-item').forEach(function(it){
+    it.addEventListener('click', function(){ nav(it.getAttribute('data-id')); closeIdx(); });
+  });
+
+  // request a new group -> request sent
+  document.getElementById('submitReqBtn').addEventListener('click', function(){ nav('request-sent'); });
+
+  // new thread composer: poll / image toggles
+  document.getElementById('pollToggleBtn').addEventListener('click', function(){
+    var el = document.getElementById('pollBuilder');
+    el.hidden = !el.hidden;
+    this.classList.toggle('active', !el.hidden);
+  });
+  document.getElementById('imgToggleBtn').addEventListener('click', function(){
+    var el = document.getElementById('imgPreview');
+    el.hidden = !el.hidden;
+    this.classList.toggle('active', !el.hidden);
+  });
+  document.getElementById('anonSwitch').addEventListener('click', function(){
+    this.classList.toggle('off');
+  });
+  document.getElementById('postThreadBtn').addEventListener('click', function(){
+    var titleInput = document.getElementById('newThreadTitle');
+    var title = titleInput.value.trim() || 'Untitled thread';
+    var list = document.getElementById('groupThreadList');
+    var row = document.createElement('div');
+    row.className = 'thread-row';
+    var avatar = document.createElement('div');
+    avatar.className = 'discuss-avatar';
+    avatar.textContent = document.getElementById('anonSwitch').classList.contains('off') ? 'Y' : '?';
+    var main = document.createElement('div');
+    main.className = 'thread-main';
+    var titleRow = document.createElement('div');
+    titleRow.className = 'thread-title-row';
+    var titleSpan = document.createElement('span');
+    titleSpan.className = 'thread-title';
+    titleSpan.textContent = title;
+    titleRow.appendChild(titleSpan);
+    var preview = document.createElement('div');
+    preview.className = 'thread-preview';
+    preview.textContent = 'Posted just now';
+    main.appendChild(titleRow);
+    main.appendChild(preview);
+    var stats = document.createElement('div');
+    stats.className = 'thread-stats';
+    stats.innerHTML = '<b>0</b>replies · now';
+    row.appendChild(avatar);
+    row.appendChild(main);
+    row.appendChild(stats);
+    list.insertBefore(row, list.firstChild);
+    titleInput.value = '';
+    document.getElementById('newThreadBody').value = '';
+    goBack();
+  });
+
+  // thread: poll voting
+  var postPoll = document.getElementById('postPoll');
+  postPoll.querySelectorAll('.poll-opt').forEach(function(opt){
+    opt.addEventListener('click', function(){
+      if (postPoll.classList.contains('voted')) return;
+      postPoll.classList.add('voted');
+      opt.classList.add('picked');
+      document.getElementById('postPollMeta').textContent = 'You voted · 97 votes';
+    });
+  });
+
+  // thread: turn into menus
+  document.addEventListener('click', function(e){
+    if (!e.target.closest('.turninto-wrap')){
+      document.querySelectorAll('.turninto-menu').forEach(function(m){ m.hidden = true; });
+    }
+  });
+  document.querySelectorAll('.turninto-btn').forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      var menu = btn.nextElementSibling;
+      var wasHidden = menu.hidden;
+      document.querySelectorAll('.turninto-menu').forEach(function(m){ m.hidden = true; });
+      menu.hidden = !wasHidden;
+    });
+  });
+  document.querySelectorAll('.turninto-menu a').forEach(function(a){
+    a.addEventListener('click', function(e){
+      e.preventDefault();
+      var kind = a.getAttribute('data-turn');
+      nav(kind === 'explainer' ? 'turn-explainer' : 'turn-debate');
+    });
+  });
+
+  // thread: load more replies
+  document.getElementById('loadMoreBtn').addEventListener('click', function(){
+    document.getElementById('moreReplies').hidden = false;
+    this.hidden = true;
+  });
+
+  // thread: post a reply
+  document.getElementById('postReplyBtn').addEventListener('click', function(){
+    var input = document.getElementById('replyInput');
+    var text = input.value.trim();
+    if (!text) return;
+    var list = document.getElementById('discussList');
+    var wrap = document.createElement('div');
+    var row = document.createElement('div');
+    row.className = 'discuss-row';
+    var avatar = document.createElement('div');
+    avatar.className = 'discuss-avatar';
+    avatar.textContent = '?';
+    var body = document.createElement('div');
+    body.className = 'discuss-body';
+    var meta = document.createElement('div');
+    meta.className = 'discuss-meta';
+    meta.innerHTML = '<b>Anonymous</b><span>now</span>';
+    var textEl = document.createElement('div');
+    textEl.className = 'discuss-text';
+    textEl.textContent = text;
+    var actions = document.createElement('div');
+    actions.className = 'msg-actions';
+    var da = document.createElement('div');
+    da.className = 'discuss-actions';
+    da.innerHTML = '<button>Like</button><button>Reply</button>';
+    var tw = document.createElement('div');
+    tw.className = 'turninto-wrap';
+    var tBtn = document.createElement('button');
+    tBtn.className = 'turninto-btn';
+    tBtn.type = 'button';
+    tBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Turn into';
+    var tMenu = document.createElement('div');
+    tMenu.className = 'turninto-menu';
+    tMenu.hidden = true;
+    var aExp = document.createElement('a');
+    aExp.href = '#'; aExp.textContent = 'Turn into Explainer';
+    aExp.addEventListener('click', function(e){ e.preventDefault(); nav('turn-explainer'); });
+    var aDeb = document.createElement('a');
+    aDeb.href = '#'; aDeb.textContent = 'Turn into Debate';
+    aDeb.addEventListener('click', function(e){ e.preventDefault(); nav('turn-debate'); });
+    tMenu.appendChild(aExp); tMenu.appendChild(aDeb);
+    tBtn.addEventListener('click', function(e){
+      e.stopPropagation();
+      var wasHidden = tMenu.hidden;
+      document.querySelectorAll('.turninto-menu').forEach(function(m){ m.hidden = true; });
+      tMenu.hidden = !wasHidden;
+    });
+    tw.appendChild(tBtn); tw.appendChild(tMenu);
+    actions.appendChild(da); actions.appendChild(tw);
+    body.appendChild(meta); body.appendChild(textEl); body.appendChild(actions);
+    row.appendChild(avatar); row.appendChild(body);
+    wrap.appendChild(row);
+    list.insertBefore(wrap, list.firstChild);
+    input.value = '';
+  });
+
+  // turn into explainer -> published
+  document.getElementById('publishExplainerBtn').addEventListener('click', function(){ nav('explainer-done'); });
+
+  // turn into debate: checkboxes + add to network + start
+  document.querySelectorAll('.recommend-check').forEach(function(chk){
+    chk.addEventListener('click', function(){
+      var box = chk.querySelector('.checkbox');
+      var isChecked = chk.getAttribute('data-checked') === '1';
+      chk.setAttribute('data-checked', isChecked ? '0' : '1');
+      box.classList.toggle('checked', !isChecked);
+      box.innerHTML = !isChecked ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' : '';
+      updateInviteCount();
+    });
+  });
+  document.querySelectorAll('.recommend-add').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      if (btn.classList.contains('added')) return;
+      btn.classList.add('added');
+      btn.textContent = 'Added ✓';
+    });
+  });
+  function updateInviteCount(){
+    var n = document.querySelectorAll('.recommend-check[data-checked="1"]').length;
+    document.getElementById('startDebateBtn').textContent = 'Start debate with ' + n + ' invited';
+  }
+  document.getElementById('startDebateBtn').addEventListener('click', function(){
+    var n = document.querySelectorAll('.recommend-check[data-checked="1"]').length;
+    document.getElementById('debateDoneBody').textContent =
+      'Your Debate Arena is live with ' + n + ' ' + (n === 1 ? 'person' : 'people') +
+      ' invited. We will notify them now, and anyone in Life After Chemo can join once it is public.';
+    nav('debate-done');
+  });
+
+  render();
+})();
+</script>
